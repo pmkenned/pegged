@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <assert.h>
 
+/* used for left-hand-side of assignment */
 #define RIGHT_ONE_LVAL(r,c)   grid[r   ][(c)+1]
 #define RIGHT_TWO_LVAL(r,c)   grid[r   ][(c)+2]
 #define LEFT_ONE_LVAL(r,c)    grid[r   ][(c)-1]
@@ -11,6 +12,7 @@
 #define DOWN_ONE_LVAL(r,c)    grid[r+1 ][c    ]
 #define DOWN_TWO_LVAL(r,c)    grid[r+2 ][c    ]
 
+/* used to look up grid locations; evaluate to INVALID if outside bounds */
 #define RIGHT_ONE(r,c)  (((c) < NCOLS-1)    ? grid[r][c+1] : INVALID)
 #define RIGHT_TWO(r,c)  (((c) < NCOLS-2)    ? grid[r][c+2] : INVALID)
 #define LEFT_ONE(r,c)   (((c) > 0)          ? grid[r][c-1] : INVALID)
@@ -47,10 +49,6 @@ enum {
 
 const char * dir_strs[] = { "up", "down", "left", "right" };
 
-enum {
-    MAX_STACK_DEPTH = 1000
-};
-
 char grid_full[NROWS][NCOLS] = {
     "--***--",
     "--***--",
@@ -77,6 +75,7 @@ char * grid_1d = (char *) grid_full;
 int verbose = 0;
 
 /* NOTE: stack pointers point to empty slot */
+enum { MAX_STACK_DEPTH = 1000 };
 size_t avail_sp = 0;
 move_t avail_move_stack[MAX_STACK_DEPTH];
 #if 0
@@ -92,6 +91,7 @@ void print_moves(move_t * moves, size_t n)
     }
 }
 
+/* print only the moves that are part of the solution */
 void print_taken_moves()
 {
     size_t i;
@@ -221,6 +221,7 @@ int get_moves()
     return n;
 }
 
+/* execute the move at the top of the stack */
 void do_top_move()
 {
     move_t *mp = &avail_move_stack[avail_sp-1];
@@ -255,6 +256,7 @@ void do_top_move()
 #endif
 }
 
+/* undo the move at the top of the stack */
 void undo_top_move()
 {
     move_t *mp = &avail_move_stack[avail_sp-1];
@@ -288,7 +290,7 @@ void undo_top_move()
 #endif
 }
 
-void pop_or_abort()
+void pop()
 {
     avail_sp--;
     assert(avail_sp > 0);
@@ -300,6 +302,26 @@ int top_move_tried()
     return avail_move_stack[avail_sp-1].taken;
 }
 
+/* depth-first-search
+ *
+ * at start and each time a move is taken, identify all the newly available
+ * moves and push them onto a stack
+ *
+ * apply the move at the top of the stack and mark it as taken
+ *
+ * repeat the above until either solved or no moves are available
+ *
+ * if no moves are available, undo the most recent move, remove it from the 
+ * stack and look at the new top-of-stack move; if it is already marked as 
+ * taken, pop again until an untaken move is found and take it
+ *
+ * repeat until a solution is found
+ *
+ * this algorithm can be visualized as searching a tree where nodes are game
+ * states and edges are moves; when a leaf node is hit (i.e. no moves), back
+ * up to the nearest node with untried moves
+ *
+ */
 void solve()
 {
     int bail = 0;
@@ -320,7 +342,7 @@ void solve()
                 verbose && (print_top_move(),1);
                 undo_top_move();
                 verbose && (print_grid(),1);
-                pop_or_abort();
+                pop();
             } while (top_move_tried());
             verbose && (print_top_move(),1);
             do_top_move();
