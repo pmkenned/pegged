@@ -50,9 +50,12 @@ enum {
     DIR_RIGHT
 };
 
+#define THOUSAND(n) n ## 000
+#define MILLION(n) n ## 000000
+
 enum {
-    MAX_TRIES=8,
-    MAX_MOVES=4000000
+    MAX_TRIES = 128,
+    MAX_MOVES = MILLION(10)
 };
 
 const char * dir_strs[] = { "up", "down", "left", "right" };
@@ -86,6 +89,7 @@ char * grid_1d = (char *) grid;
 int verbose = 0;
 long seed;
 int nmoves_tried=0;
+int nresets;
 
 /* NOTE: stack pointers point to empty slot */
 enum { MAX_STACK_DEPTH = 1000 };
@@ -207,11 +211,7 @@ int get_moves()
     int n = 0;
     int r, c;
 /* if there are more pegs than holes, it's more efficient to start with holes and look for pegs */
-#if 0
     if (npegs < nholes) {
-#else
-    if (1) {
-#endif
         for (r=0; r<NROWS; r++) {
             for (c=0; c<NCOLS; c++) {
                 int is_peg = (grid[r][c] == PEG) ? 1 : 0;
@@ -377,11 +377,15 @@ void reset()
  * states and edges are moves; when a leaf node is hit (i.e. no moves), back
  * up to the nearest node with untried moves
  *
+ * apparently it can sometimes happen that you go down an unlucky path where
+ * there either are no solutions, or they take a very long time to find
+ * to mitigate this, there is an outer look that resets the board after a
+ * certain threshold and tries a different random path
+ *
  */
 void solve()
 {
-    int i;
-    for (i=0; i < MAX_TRIES; i++) {
+    for (nresets=0; nresets < MAX_TRIES; nresets++) {
         reset();
         while (nmoves_tried++ < MAX_MOVES) {
             int n_avail_moves;
@@ -419,6 +423,7 @@ int main(int argc, char * argv[])
     solve();
     printf("max fanout: %d\n", max_fanout);
     printf("max stack usage: %zu\n", max_stack_sp);
+    printf("num resets: %d\n", nresets);
     printf("num moves tried: %d\n", nmoves_tried);
     print_taken_moves();
     return 0;
