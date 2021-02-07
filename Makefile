@@ -12,8 +12,6 @@ SRC=main.c
 OBJ=$(SRC:%.c=$(BUILD_DIR)/%.o)
 DEP=$(OBJ:%.o=%.d)
 
--include $(DEP)
-
 all: $(BUILD_DIR)/$(TARGET)
 
 $(BUILD_DIR)/$(TARGET): $(OBJ)
@@ -23,6 +21,8 @@ $(BUILD_DIR)/$(TARGET): $(OBJ)
 $(BUILD_DIR)/%.o: %.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CXXFLAGS) -MMD -c -o $@ $<
+
+-include $(DEP)
 
 run: $(BUILD_DIR)/$(TARGET)
 	$(BUILD_DIR)/$(TARGET)
