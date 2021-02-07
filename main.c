@@ -1,3 +1,17 @@
+/*
+ * Peg Solitaire Solver
+ * Paul Kennedy <paul.kennedy124@gmail.com>
+ * 7 Feb 2021
+ *
+ * TODO:
+ * - use ncurses to render grid being solved
+ * - round-robin several stacks
+ * - eliminate symmetrical moves
+ * - detect impossible to solve configurations
+ * - consider multi-threading
+ *
+ */
+
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -55,7 +69,8 @@ enum {
 
 enum {
     MAX_TRIES = THOUSAND(1),
-    MAX_MOVES = MILLION(10)
+    MAX_MOVES = MILLION(10),
+    INIT_UNWIND_TO = 16
 };
 
 const char * dir_strs[] = { "up", "down", "left", "right" };
@@ -425,8 +440,10 @@ void reset()
  */
 void solve()
 {
+    int unwind_to = INIT_UNWIND_TO;
+    reset();
     for (nresets=0; nresets < MAX_TRIES; nresets++) {
-        reset();
+
         while (nmoves_tried++ < MAX_MOVES) {
             int n_avail_moves;
             if (check_win()) {
@@ -450,7 +467,22 @@ void solve()
                 verbose && (print_grid(),1);
             }
         }
-        putchar('.');
+        /*putchar('.');*/
+
+        verbose || (printf("unwinding to %d...\n", unwind_to),1);
+        do {
+            if (top_move_tried()) {
+                verbose && (printf("undoing: "),1);
+                verbose && (print_top_move(),1);
+                undo_top_move();
+                verbose && (print_grid(),1);
+            }
+            pop();
+        } while (avail_sp > unwind_to);
+        nmoves_tried = 0;
+        if ((nresets % 2 == 0) && (unwind_to > 2))
+            unwind_to--;
+
         fflush(stdout);
     }
     assert("no solution found" == 0);
