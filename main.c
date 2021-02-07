@@ -39,8 +39,8 @@ enum {
 };
 
 enum {
-    NROWS=7,
-    NCOLS=7
+    NROWS=9,
+    NCOLS=9
 };
 
 enum {
@@ -54,33 +54,73 @@ enum {
 #define MILLION(n) n ## 000000
 
 enum {
-    MAX_TRIES = 128,
+    MAX_TRIES = THOUSAND(1),
     MAX_MOVES = MILLION(10)
 };
 
 const char * dir_strs[] = { "up", "down", "left", "right" };
 
-#define GRID_FULL {\
-    "  ooo  ",\
-    "  ooo  ",\
-    "ooooooo",\
-    "ooo.ooo",\
-    "ooooooo",\
-    "  ooo  ",\
-    "  ooo  "\
+#define GRID_FRENCH {\
+    "         ",\
+    "   ooo   ",\
+    "  ooooo  ",\
+    " ooo.ooo ",\
+    " ooooooo ",\
+    " ooooooo ",\
+    "  poooo  ",\
+    "   ooo   ",\
+    "         "\
+}
+
+#define GRID_GERMAN {\
+    "   ooo   ",\
+    "   ooo   ",\
+    "   ooo   ",\
+    "ooooooooo",\
+    "oooo.oooo",\
+    "ooooooooo",\
+    "   ooo   ",\
+    "   ooo   ",\
+    "   ooo   "\
+}
+
+#define GRID_ENGLISH {\
+    "         ",\
+    "   ooo   ",\
+    "   ooo   ",\
+    " ooooooo ",\
+    " ooo.ooo ",\
+    " ooooooo ",\
+    "   ooo   ",\
+    "   ooo   ",\
+    "         "\
+}
+
+#define GRID_TRIANGLE {\
+    "    o    ",\
+    "   ooo   ",\
+    "  ooooo  ",\
+    " ooooooo ",\
+    "oooo.oooo",\
+    " ooooooo ",\
+    "  ooooo  ",\
+    "   ooo   ",\
+    "    o    "\
 }
 
 #define GRID_CROSS {\
-    "  ...  ",\
-    "  .o.  ",\
-    "..ooo..",\
-    "...o...",\
-    "...o...",\
-    "  ...  ",\
-    "  ...  "\
+    "         ",\
+    "   ...   ",\
+    "   .o.   ",\
+    " ..ooo.. ",\
+    " ...o... ",\
+    " ...o... ",\
+    "   ...   ",\
+    "   ...   ",\
+    "         "\
 }
 
-#define CHOSEN_GRID GRID_FULL
+#define CHOSEN_GRID GRID_ENGLISH
 
 char grid_init[NROWS][NCOLS] = CHOSEN_GRID;
 char grid[NROWS][NCOLS] = CHOSEN_GRID;
@@ -410,7 +450,8 @@ void solve()
                 verbose && (print_grid(),1);
             }
         }
-        printf("no solution found, resetting and tring again...\n");
+        putchar('.');
+        fflush(stdout);
     }
     assert("no solution found" == 0);
 }
@@ -418,10 +459,10 @@ void solve()
 int main(int argc, char * argv[])
 {
     seed = (argc > 1) ? atol(argv[1]) : time(NULL);
-    printf("seed: %d\n", seed);
+    printf("seed: %ld\n", seed);
     srand(seed);
     solve();
-    printf("max fanout: %d\n", max_fanout);
+    printf("\nmax fanout: %d\n", max_fanout);
     printf("max stack usage: %zu\n", max_stack_sp);
     printf("num resets: %d\n", nresets);
     printf("num moves tried: %d\n", nmoves_tried);
