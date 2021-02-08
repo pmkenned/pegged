@@ -18,6 +18,7 @@
 #include <time.h>
 #include <assert.h>
 #include <string.h>
+#include <ncurses.h>
 
 /* used for left-hand-side of assignment */
 #define RIGHT_ONE_LVAL(r,c)   grid[r   ][(c)+1]
@@ -69,8 +70,7 @@ enum {
 
 enum {
     MAX_TRIES = THOUSAND(1),
-    MAX_MOVES = MILLION(10),
-    INIT_UNWIND_TO = 16
+    MAX_MOVES = THOUSAND(20)
 };
 
 const char * dir_strs[] = { "up", "down", "left", "right" };
@@ -141,7 +141,7 @@ char grid_init[NROWS][NCOLS] = CHOSEN_GRID;
 char grid[NROWS][NCOLS] = CHOSEN_GRID;
 char * grid_1d = (char *) grid;
 
-int verbose = 0;
+int verbose = 1;
 long seed;
 int nmoves_tried=0;
 int nresets;
@@ -159,7 +159,7 @@ void print_moves(move_t * moves, size_t n)
     size_t i;
     for (i=0; i<n; i++) {
         size_t dir = moves[i].dir;
-        printf("%d %d %s\n", moves[i].row, moves[i].col, dir_strs[dir]);
+        printw("%d %d %s\n", moves[i].row, moves[i].col, dir_strs[dir]);
     }
 }
 
@@ -171,7 +171,7 @@ void print_taken_moves()
         move_t *mp = &avail_move_stack[i];
         size_t dir = mp->dir;
         if (avail_move_stack[i].taken)
-            printf("%d %d %s\n", mp->row, mp->col, dir_strs[dir]);
+            printw("%d %d %s\n", mp->row, mp->col, dir_strs[dir]);
     }
 }
 
@@ -179,7 +179,8 @@ void print_top_move()
 {
     move_t *mp = &avail_move_stack[avail_sp-1];
     size_t dir = mp->dir;
-    printf("%d %d %s\n", mp->row, mp->col, dir_strs[dir]);
+    move(NROWS+2, 0);
+    printw("%d %d %s\n", mp->row, mp->col, dir_strs[dir]);
 }
 
 void print_grid()
@@ -187,11 +188,12 @@ void print_grid()
     int r, c;
     for (r=0; r<NROWS; r++) {
         for (c=0; c<NCOLS; c++) {
-            putchar(grid[r][c]);
+            /*putchar(grid[r][c]);*/
+            mvaddch(r+1,c+1,grid[r][c]);
         }
-        putchar('\n');
+        /*putchar('\n');*/
     }
-    putchar('\n');
+    /*putchar('\n');*/
 }
 
 int num_pegs()
@@ -440,10 +442,8 @@ void reset()
  */
 void solve()
 {
-    int unwind_to = INIT_UNWIND_TO;
-    reset();
     for (nresets=0; nresets < MAX_TRIES; nresets++) {
-
+        reset();
         while (nmoves_tried++ < MAX_MOVES) {
             int n_avail_moves;
             if (check_win()) {
@@ -454,50 +454,55 @@ void solve()
                 verbose && (print_top_move(),1);
                 do_top_move();
                 verbose && (print_grid(),1);
+                verbose && refresh();
+                0 && getch();
             } else {
                 do {
-                    verbose && (printf("undoing: "),1);
+                    verbose && (move(NROWS+1,0), printw("undoing: "),1);
                     verbose && (print_top_move(),1);
                     undo_top_move();
                     verbose && (print_grid(),1);
                     pop();
+                    verbose && refresh();
+                    0 && getch();
                 } while (top_move_tried());
+                verbose && (move(NROWS+1,0), printw("         "),1);
                 verbose && (print_top_move(),1);
                 do_top_move();
                 verbose && (print_grid(),1);
+                verbose && refresh();
+                0 && getch();
             }
+            verbose && (move(NROWS+3,0), printw("%d      ", nmoves_tried), 1);
+            verbose && refresh();
         }
-        /*putchar('.');*/
-
-        verbose || (printf("unwinding to %d...\n", unwind_to),1);
-        do {
-            if (top_move_tried()) {
-                verbose && (printf("undoing: "),1);
-                verbose && (print_top_move(),1);
-                undo_top_move();
-                verbose && (print_grid(),1);
-            }
-            pop();
-        } while (avail_sp > unwind_to);
-        nmoves_tried = 0;
-        if ((nresets % 2 == 0) && (unwind_to > 2))
-            unwind_to--;
-
+#if 0
+        putchar('.');
         fflush(stdout);
+        print_grid();
+        refresh();
+#endif
+        printw(".");
+        refresh();
     }
     assert("no solution found" == 0);
 }
 
 int main(int argc, char * argv[])
 {
+    initscr();
     seed = (argc > 1) ? atol(argv[1]) : time(NULL);
-    printf("seed: %ld\n", seed);
+    printw("seed: %ld\n", seed);
     srand(seed);
     solve();
-    printf("\nmax fanout: %d\n", max_fanout);
-    printf("max stack usage: %zu\n", max_stack_sp);
-    printf("num resets: %d\n", nresets);
-    printf("num moves tried: %d\n", nmoves_tried);
+    move(NROWS+2,1);
+    printw("\nmax fanout: %d\n", max_fanout);
+    printw("max stack usage: %zu\n", max_stack_sp);
+    printw("num resets: %d\n", nresets);
+    printw("num moves tried: %d\n", nmoves_tried);
     print_taken_moves();
+    refresh();
+    getch();
+    endwin();
     return 0;
 }

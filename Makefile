@@ -4,7 +4,7 @@ CC=gcc
 CPPFLAGS=-Wall -Wextra -pedantic -O2 -std=c89
 CXXFLAGS=
 LDFLAGS=
-LDLIBS=
+LDLIBS=-lncurses
 
 TARGET=a.out
 BUILD_DIR=./build
