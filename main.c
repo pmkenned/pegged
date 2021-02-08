@@ -69,7 +69,7 @@ enum {
 #define MILLION(n) n ## 000000
 
 enum {
-    MAX_TRIES = THOUSAND(1),
+    MAX_TRIES = THOUSAND(100),
     MAX_MOVES = THOUSAND(20)
 };
 
@@ -82,7 +82,7 @@ const char * dir_strs[] = { "up", "down", "left", "right" };
     " ooo.ooo ",\
     " ooooooo ",\
     " ooooooo ",\
-    "  poooo  ",\
+    "  ooooo  ",\
     "   ooo   ",\
     "         "\
 }
@@ -142,9 +142,11 @@ char grid[NROWS][NCOLS] = CHOSEN_GRID;
 char * grid_1d = (char *) grid;
 
 int verbose = 1;
+int step = 0;
 long seed;
 int nmoves_tried=0;
 int nresets;
+
 
 /* NOTE: stack pointers point to empty slot */
 enum { MAX_STACK_DEPTH = 1000 };
@@ -153,6 +155,8 @@ move_t avail_move_stack[MAX_STACK_DEPTH];
 size_t max_stack_sp;
 int max_fanout = 0;
 int npegs=1, nholes=0; /* NOTE: set these initially */
+
+int init_num_pegs = 0;
 
 void print_moves(move_t * moves, size_t n)
 {
@@ -179,7 +183,7 @@ void print_top_move()
 {
     move_t *mp = &avail_move_stack[avail_sp-1];
     size_t dir = mp->dir;
-    move(NROWS+2, 0);
+    move(NROWS+3, 0);
     printw("%d %d %s\n", mp->row, mp->col, dir_strs[dir]);
 }
 
@@ -189,11 +193,19 @@ void print_grid()
     for (r=0; r<NROWS; r++) {
         for (c=0; c<NCOLS; c++) {
             /*putchar(grid[r][c]);*/
-            mvaddch(r+1,c+1,grid[r][c]);
+            mvaddch(r+1,c,grid[r][c]);
         }
         /*putchar('\n');*/
     }
     /*putchar('\n');*/
+    /* display number of moves */
+    move(NROWS+1,0);
+    for (c = 0; c < init_num_pegs; c++) {
+        if (c < nholes-1)
+            addch('*');
+        else
+            addch('-');
+    }
 }
 
 int num_pegs()
@@ -408,9 +420,17 @@ int top_move_tried()
 
 void reset()
 {
+    int r, c;
+    for (r=0; r<NROWS; r++) {
+        for (c=0; c<NCOLS; c++) {
+            char x = grid_init[r][c];
+            assert((x == PEG) || (x == HOLE) || (x == INVALID));
+        }
+    }
     memcpy(grid, grid_init, sizeof(grid));
     npegs = num_pegs();
     nholes = num_holes();
+    init_num_pegs = npegs;
     avail_sp = 0;
     nmoves_tried = 0;
 }
@@ -445,36 +465,40 @@ void solve()
     for (nresets=0; nresets < MAX_TRIES; nresets++) {
         reset();
         while (nmoves_tried++ < MAX_MOVES) {
+            int _verbose = 0;
+            if (nmoves_tried % 1000 == 0) {
+                _verbose = verbose;
+            }
             int n_avail_moves;
             if (check_win()) {
                 return;
             }
             n_avail_moves = get_moves();
             if ((n_avail_moves > 0) && win_still_possible()) {
-                verbose && (print_top_move(),1);
+                _verbose && (print_top_move(),1);
                 do_top_move();
-                verbose && (print_grid(),1);
-                verbose && refresh();
-                0 && getch();
+                _verbose && (print_grid(),1);
+                _verbose && refresh();
+                _verbose && step && getch();
             } else {
                 do {
-                    verbose && (move(NROWS+1,0), printw("undoing: "),1);
-                    verbose && (print_top_move(),1);
+                    _verbose && (move(NROWS+2,0), printw("undoing: "),1);
+                    _verbose && (print_top_move(),1);
                     undo_top_move();
-                    verbose && (print_grid(),1);
+                    _verbose && (print_grid(),1);
                     pop();
-                    verbose && refresh();
-                    0 && getch();
+                    _verbose && refresh();
+                    _verbose && step && getch();
                 } while (top_move_tried());
-                verbose && (move(NROWS+1,0), printw("         "),1);
-                verbose && (print_top_move(),1);
+                _verbose && (move(NROWS+2,0), printw("         "),1);
+                _verbose && (print_top_move(),1);
                 do_top_move();
-                verbose && (print_grid(),1);
-                verbose && refresh();
-                0 && getch();
+                _verbose && (print_grid(),1);
+                _verbose && refresh();
+                _verbose && step && getch();
             }
-            verbose && (move(NROWS+3,0), printw("%d      ", nmoves_tried), 1);
-            verbose && refresh();
+            _verbose && (move(NROWS+4,0), printw("%d      ", nmoves_tried), 1);
+            _verbose && refresh();
         }
 #if 0
         putchar('.');
@@ -482,7 +506,10 @@ void solve()
         print_grid();
         refresh();
 #endif
-        printw(".");
+        if (verbose)
+            mvprintw(1,0, "RESET");
+        else
+            printw(".");
         refresh();
     }
     assert("no solution found" == 0);
@@ -495,7 +522,8 @@ int main(int argc, char * argv[])
     printw("seed: %ld\n", seed);
     srand(seed);
     solve();
-    move(NROWS+2,1);
+    print_grid();
+    move(NROWS+5,1);
     printw("\nmax fanout: %d\n", max_fanout);
     printw("max stack usage: %zu\n", max_stack_sp);
     printw("num resets: %d\n", nresets);
