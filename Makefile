@@ -1,18 +1,43 @@
 .PHONY: all run clean
 
-CC=gcc
-CPPFLAGS=-Wall -Wextra -pedantic -O2 -std=c89
-CXXFLAGS=
-LDFLAGS=
-LDLIBS=-lncurses
+CC = gcc
+CPPFLAGS = -Wall -Wextra -pedantic -O2 -std=c89
+CXXFLAGS = 
+LDFLAGS = 
+LDLIBS = 
 
-TARGET=a.out
-BUILD_DIR=./build
-SRC=main.c
-OBJ=$(SRC:%.c=$(BUILD_DIR)/%.o)
-DEP=$(OBJ:%.o=%.d)
+TARGET := pegged
+BUILD_DIR = ./build
+SRC = main.c
+OBJ = $(SRC:%.c=$(BUILD_DIR)/%.o)
+DEP = $(OBJ:%.o=%.d)
+
+include os.mk
+
+ifeq ($(KERNEL),Windows)
+	ifeq ($(ENV), CYGWIN_NT)
+	endif
+	ifeq ($(ENV), MINGW32_NT)
+		CXXFLAGS = -Ic:/MinGW/include/ncursesw/
+		LDFLAGS = -Lc:/MinGW/lib/
+		LDLIBS += -lncursesw
+	endif
+	TARGET := $(TARGET).exe
+endif
+ifeq ($(KERNEL),Linux)
+		LDLIBS = -lncurses
+endif
+ifeq ($(KERNEL),Darwin)
+		LDLIBS = -lncurses
+endif
 
 all: $(BUILD_DIR)/$(TARGET)
+ifeq ($(ENV), MINGW32_NT)
+ifeq (,$(wildcard $(BUILD_DIR)/*.dll))
+	cp c:/MinGW/bin/libgcc_s_dw2-1.dll $(BUILD_DIR)/
+	cp c:/MinGW/bin/libncursesw6.dll $(BUILD_DIR)/
+endif
+endif
 
 $(BUILD_DIR)/$(TARGET): $(OBJ)
 	mkdir -p $(BUILD_DIR)

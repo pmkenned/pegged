@@ -20,6 +20,8 @@
 #include <string.h>
 #include <ncurses.h>
 
+/* ==== macros ==== */
+
 /* used for left-hand-side of assignment */
 #define RIGHT_ONE_LVAL(r,c)   grid[r   ][(c)+1]
 #define RIGHT_TWO_LVAL(r,c)   grid[r   ][(c)+2]
@@ -40,40 +42,8 @@
 #define UP_ONE(r,c)     (((r) > 0)          ? grid[r-1][c] : INVALID)
 #define UP_TWO(r,c)     (((r) > 1)          ? grid[r-2][c] : INVALID)
 
-typedef struct {
-    char row;
-    char col;
-    char dir;
-    char taken;
-} move_t;
-
-enum {
-    HOLE='.',
-    PEG='o',
-    INVALID=' '
-};
-
-enum {
-    NROWS=9,
-    NCOLS=9
-};
-
-enum {
-    DIR_UP=0,
-    DIR_DOWN,
-    DIR_LEFT,
-    DIR_RIGHT
-};
-
 #define THOUSAND(n) n ## 000
 #define MILLION(n) n ## 000000
-
-enum {
-    MAX_TRIES = THOUSAND(100),
-    MAX_MOVES = THOUSAND(20)
-};
-
-const char * dir_strs[] = { "up", "down", "left", "right" };
 
 #define GRID_FRENCH {\
     "         ",\
@@ -137,26 +107,67 @@ const char * dir_strs[] = { "up", "down", "left", "right" };
 
 #define CHOSEN_GRID GRID_ENGLISH
 
+/* ==== types ==== */
+
+typedef struct {
+    char row;
+    char col;
+    char dir;
+    char taken;
+} move_t;
+
+enum {
+    HOLE='.',
+    PEG='o',
+    INVALID=' '
+};
+
+enum {
+    NROWS=9,
+    NCOLS=9
+};
+
+enum {
+    DIR_UP=0,
+    DIR_DOWN,
+    DIR_LEFT,
+    DIR_RIGHT
+};
+
+enum {
+    MAX_TRIES = THOUSAND(100),
+    MAX_MOVES = THOUSAND(20)
+};
+
+/* ==== data ==== */
+
+/* options */
+int quiet = 1;
+int step = 0;
+long seed;
+
+/* stats */
+size_t max_stack_sp;
+int max_fanout = 0;
+
+const char * dir_strs[] = { "up", "down", "left", "right" };
+
 char grid_init[NROWS][NCOLS] = CHOSEN_GRID;
 char grid[NROWS][NCOLS] = CHOSEN_GRID;
 char * grid_1d = (char *) grid;
-
-int verbose = 1;
-int step = 0;
-long seed;
-int nmoves_tried=0;
-int nresets;
-
 
 /* NOTE: stack pointers point to empty slot */
 enum { MAX_STACK_DEPTH = 1000 };
 size_t avail_sp = 0;
 move_t avail_move_stack[MAX_STACK_DEPTH];
-size_t max_stack_sp;
-int max_fanout = 0;
-int npegs=1, nholes=0; /* NOTE: set these initially */
 
+ /* NOTE: set these initially */
+int nmoves_tried=0;
+int nresets;
+int npegs=1, nholes=0;
 int init_num_pegs = 0;
+
+/* ==== functions ==== */
 
 void print_moves(move_t * moves, size_t n)
 {
@@ -183,8 +194,26 @@ void print_top_move()
 {
     move_t *mp = &avail_move_stack[avail_sp-1];
     size_t dir = mp->dir;
-    move(NROWS+3, 0);
+    move(NROWS+4, 0);
     printw("%d %d %s\n", mp->row, mp->col, dir_strs[dir]);
+}
+
+void print_grid_ncurses()
+{
+    int r, c;
+    for (r=0; r<NROWS; r++) {
+        for (c=0; c<NCOLS; c++) {
+            mvaddch(r+2,c,grid[r][c]);
+        }
+    }
+    /* display number of moves */
+    move(NROWS+2,0);
+    for (c = 0; c < init_num_pegs; c++) {
+        if (c < nholes-1)
+            addch('*');
+        else
+            addch('-');
+    }
 }
 
 void print_grid()
@@ -192,19 +221,9 @@ void print_grid()
     int r, c;
     for (r=0; r<NROWS; r++) {
         for (c=0; c<NCOLS; c++) {
-            /*putchar(grid[r][c]);*/
-            mvaddch(r+1,c,grid[r][c]);
+            putchar(grid[r][c]);
         }
-        /*putchar('\n');*/
-    }
-    /*putchar('\n');*/
-    /* display number of moves */
-    move(NROWS+1,0);
-    for (c = 0; c < init_num_pegs; c++) {
-        if (c < nholes-1)
-            addch('*');
-        else
-            addch('-');
+        putchar('\n');
     }
 }
 
@@ -279,7 +298,7 @@ int get_moves()
 {
     int n = 0;
     int r, c;
-/* if there are more pegs than holes, it's more efficient to start with holes and look for pegs */
+    /* if there are more pegs than holes, it's more efficient to start with holes and look for pegs */
     if (npegs < nholes) {
         for (r=0; r<NROWS; r++) {
             for (c=0; c<NCOLS; c++) {
@@ -333,9 +352,7 @@ int get_moves()
     if (n > max_fanout) {
         max_fanout = n;
     }
-#if 1
     shuffle_new_moves(n);
-#endif
     return n;
 }
 
@@ -435,6 +452,33 @@ void reset()
     nmoves_tried = 0;
 }
 
+void update_screen(int undoing)
+{
+    mvprintw(0, 0, "seed: %ld", seed);
+    mvprintw(1, 0, "Num resets: %d", nresets);
+    if (undoing)    mvprintw(NROWS+3, 0, "undoing: ");
+    else            mvprintw(NROWS+3, 0, "         ");
+    print_top_move();
+    print_grid_ncurses();
+    mvprintw(NROWS+5, 0, "moves tried: %d      ", nmoves_tried);
+    refresh();
+    if (step) {
+        if (getch() == 10) /* ENTER */
+            step = !step;
+    }
+}
+
+void print_summary()
+{
+    printf("seed: %ld\n", seed);
+    print_grid();
+    printf("max fanout: %d\n", max_fanout);
+    printf("max stack usage: %zu\n", max_stack_sp);
+    printf("num resets: %d\n", nresets);
+    printf("num moves tried: %d\n", nmoves_tried);
+    print_taken_moves();
+}
+
 /* depth-first-search
  *
  * at start and each time a move is taken, identify all the newly available
@@ -465,72 +509,34 @@ void solve()
     for (nresets=0; nresets < MAX_TRIES; nresets++) {
         reset();
         while (nmoves_tried++ < MAX_MOVES) {
-            int _verbose = 0;
-            if (nmoves_tried % 1000 == 0) {
-                _verbose = verbose;
-            }
-            int n_avail_moves;
-            if (check_win()) {
+            if (check_win())
                 return;
+            get_moves();
+            while (top_move_tried()) {
+                undo_top_move();
+                if (!quiet) update_screen(1);
+                pop();
             }
-            n_avail_moves = get_moves();
-            if ((n_avail_moves > 0) && win_still_possible()) {
-                _verbose && (print_top_move(),1);
-                do_top_move();
-                _verbose && (print_grid(),1);
-                _verbose && refresh();
-                _verbose && step && getch();
-            } else {
-                do {
-                    _verbose && (move(NROWS+2,0), printw("undoing: "),1);
-                    _verbose && (print_top_move(),1);
-                    undo_top_move();
-                    _verbose && (print_grid(),1);
-                    pop();
-                    _verbose && refresh();
-                    _verbose && step && getch();
-                } while (top_move_tried());
-                _verbose && (move(NROWS+2,0), printw("         "),1);
-                _verbose && (print_top_move(),1);
-                do_top_move();
-                _verbose && (print_grid(),1);
-                _verbose && refresh();
-                _verbose && step && getch();
-            }
-            _verbose && (move(NROWS+4,0), printw("%d      ", nmoves_tried), 1);
-            _verbose && refresh();
+            do_top_move();
+            if (!quiet) update_screen(0);
         }
-#if 0
-        putchar('.');
-        fflush(stdout);
-        print_grid();
-        refresh();
-#endif
-        if (verbose)
-            mvprintw(1,0, "RESET");
-        else
-            printw(".");
-        refresh();
     }
     assert("no solution found" == 0);
 }
 
 int main(int argc, char * argv[])
 {
-    initscr();
-    seed = (argc > 1) ? atol(argv[1]) : time(NULL);
-    printw("seed: %ld\n", seed);
+    int i;
+    seed = time(NULL);
+    for (i=1; i<argc; i++) {
+        if      (strcmp(argv[i], "-s") == 0)    { quiet = 0; step = 1; }
+        else if (argv[i][0] == '-')             { fprintf(stderr, "unrecognized option %s", argv[i]); exit(1); }
+        else                                    { seed = atol(argv[i]); }
+    }
     srand(seed);
+    if (!quiet) initscr();
     solve();
-    print_grid();
-    move(NROWS+5,1);
-    printw("\nmax fanout: %d\n", max_fanout);
-    printw("max stack usage: %zu\n", max_stack_sp);
-    printw("num resets: %d\n", nresets);
-    printw("num moves tried: %d\n", nmoves_tried);
-    print_taken_moves();
-    refresh();
-    getch();
-    endwin();
+    if (!quiet) endwin();
+    print_summary();
     return 0;
 }
