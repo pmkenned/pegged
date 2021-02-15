@@ -169,15 +169,6 @@ int init_num_pegs = 0;
 
 /* ==== functions ==== */
 
-void print_moves(move_t * moves, size_t n)
-{
-    size_t i;
-    for (i=0; i<n; i++) {
-        size_t dir = moves[i].dir;
-        printw("%d %d %s\n", moves[i].row, moves[i].col, dir_strs[dir]);
-    }
-}
-
 /* print only the moves that are part of the solution */
 void print_taken_moves()
 {
@@ -186,7 +177,7 @@ void print_taken_moves()
         move_t *mp = &avail_move_stack[i];
         size_t dir = mp->dir;
         if (avail_move_stack[i].taken)
-            printw("%d %d %s\n", mp->row, mp->col, dir_strs[dir]);
+            printf("%d %d %s\n", mp->row, mp->col, dir_strs[dir]);
     }
 }
 
@@ -225,6 +216,34 @@ void print_grid()
         }
         putchar('\n');
     }
+}
+
+void update_screen(int undoing)
+{
+    mvprintw(0, 0, "seed: %ld", seed);
+    mvprintw(1, 0, "Num resets: %d", nresets);
+    if (undoing)    mvprintw(NROWS+3, 0, "undoing: ");
+    else            mvprintw(NROWS+3, 0, "         ");
+    print_top_move();
+    print_grid_ncurses();
+    mvprintw(NROWS+5, 0, "moves tried: %d      ", nmoves_tried);
+    refresh();
+    if (step) {
+        if (getch() == 10) /* ENTER */
+            step = !step;
+    }
+}
+
+void print_summary()
+{
+    printf("\n");
+    printf("seed: %ld\n", seed);
+    print_grid();
+    printf("max fanout: %d\n", max_fanout);
+    printf("max stack usage: %zu\n", max_stack_sp);
+    printf("num resets: %d\n", nresets);
+    printf("num moves tried: %d\n", nmoves_tried);
+    print_taken_moves();
 }
 
 int num_pegs()
@@ -277,22 +296,26 @@ void push_move(char r, char c, char dir)
     avail_sp++;
 }
 
+void pop_move()
+{
+    avail_sp--;
+    assert(avail_sp > 0);
+}
+
 void shuffle_new_moves(int n)
 {
     int i;
     move_t tmp;
     move_t *m1, *m2;
-    for (i=0; i<n-1; i++) {
-        int idx = rand() % (n-i);
+    for (i=0; i<n; i++) {
+        int idx = (rand() % (n-i))+i;
         m1 = &avail_move_stack[avail_sp-n+i];
         m2 = &avail_move_stack[avail_sp-n+idx];
         memcpy(&tmp, m1, sizeof(move_t));
         memcpy(m1, m2, sizeof(move_t));
         memcpy(m2, &tmp, sizeof(move_t));
     }
-
 }
-
 
 int get_moves()
 {
@@ -423,12 +446,6 @@ void undo_top_move()
     nholes--;
 }
 
-void pop()
-{
-    avail_sp--;
-    assert(avail_sp > 0);
-}
-
 int top_move_tried()
 {
     assert(avail_sp > 0);
@@ -450,34 +467,6 @@ void reset()
     init_num_pegs = npegs;
     avail_sp = 0;
     nmoves_tried = 0;
-}
-
-void update_screen(int undoing)
-{
-    mvprintw(0, 0, "seed: %ld", seed);
-    mvprintw(1, 0, "Num resets: %d", nresets);
-    if (undoing)    mvprintw(NROWS+3, 0, "undoing: ");
-    else            mvprintw(NROWS+3, 0, "         ");
-    print_top_move();
-    print_grid_ncurses();
-    mvprintw(NROWS+5, 0, "moves tried: %d      ", nmoves_tried);
-    refresh();
-    if (step) {
-        if (getch() == 10) /* ENTER */
-            step = !step;
-    }
-}
-
-void print_summary()
-{
-    printf("\n");
-    printf("seed: %ld\n", seed);
-    print_grid();
-    printf("max fanout: %d\n", max_fanout);
-    printf("max stack usage: %zu\n", max_stack_sp);
-    printf("num resets: %d\n", nresets);
-    printf("num moves tried: %d\n", nmoves_tried);
-    print_taken_moves();
 }
 
 /* depth-first-search
@@ -517,7 +506,7 @@ void solve()
             while (top_move_tried()) {
                 undo_top_move();
                 if (!quiet) update_screen(1);
-                pop();
+                pop_move();
             }
             do_top_move();
             if (!quiet) update_screen(0);
@@ -531,9 +520,9 @@ int main(int argc, char * argv[])
     int i;
     seed = time(NULL);
     for (i=1; i<argc; i++) {
-        if      (strcmp(argv[i], "-s") == 0)    { quiet = 0; step = 1; }
-        else if (argv[i][0] == '-')             { fprintf(stderr, "unrecognized option %s", argv[i]); exit(1); }
-        else                                    { seed = atol(argv[i]); }
+        if      (strcmp(argv[i], "-s") == 0) { quiet = 0; step = 1; }
+        else if (argv[i][0] == '-')          { fprintf(stderr, "unrecognized option %s", argv[i]); exit(1); }
+        else                                 { seed = atol(argv[i]); }
     }
     srand(seed);
     if (!quiet) initscr();
