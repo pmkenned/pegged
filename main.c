@@ -4,7 +4,6 @@
  * 7 Feb 2021
  *
  * TODO:
- * - use ncurses to render grid being solved
  * - round-robin several stacks
  * - eliminate symmetrical moves
  * - detect impossible to solve configurations
@@ -41,6 +40,7 @@
 #define DOWN_TWO(r,c)   (((r) < NROWS-2)    ? grid[r+2][c] : INVALID)
 #define UP_ONE(r,c)     (((r) > 0)          ? grid[r-1][c] : INVALID)
 #define UP_TWO(r,c)     (((r) > 1)          ? grid[r-2][c] : INVALID)
+#define GRID_RC(r,c)    (((r >= 0) && (r < NROWS) && (c >= 0) && (c < NCOLS)) ? grid[r][c] : INVALID)
 
 #define THOUSAND(n) n ## 000
 #define MILLION(n) n ## 000000
@@ -136,7 +136,7 @@ enum {
 
 enum {
     MAX_TRIES = THOUSAND(100),
-    MAX_MOVES = THOUSAND(20)
+    MAX_MOVES = THOUSAND(10)
 };
 
 /* ==== data ==== */
@@ -470,6 +470,7 @@ void update_screen(int undoing)
 
 void print_summary()
 {
+    printf("\n");
     printf("seed: %ld\n", seed);
     print_grid();
     printf("max fanout: %d\n", max_fanout);
@@ -508,6 +509,7 @@ void solve()
 {
     for (nresets=0; nresets < MAX_TRIES; nresets++) {
         reset();
+        if (quiet && (nresets % 1000 == 0)) { printf("."); fflush(stdout); }
         while (nmoves_tried++ < MAX_MOVES) {
             if (check_win())
                 return;
