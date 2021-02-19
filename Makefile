@@ -18,7 +18,7 @@ ifeq ($(KERNEL),Windows)
 	ifeq ($(ENV), CYGWIN_NT)
 	endif
 	ifeq ($(ENV), MINGW32_NT)
-		CXXFLAGS = -Ic:/MinGW/include/ncursesw/
+		CPPFLAGS = -Ic:/MinGW/include/ncursesw/
 		LDFLAGS = -Lc:/MinGW/lib/
 		LDLIBS += -lncursesw
 	endif
