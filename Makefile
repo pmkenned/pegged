@@ -1,8 +1,8 @@
 .PHONY: all run clean
 
 CC = gcc
-CPPFLAGS = -Wall -Wextra -pedantic -O2 -std=c89
-CXXFLAGS = 
+CPPFLAGS =
+CFLAGS = -Wall -Wextra -pedantic -O2 -std=c89 -Wno-format
 LDFLAGS = 
 LDLIBS = 
 
@@ -45,7 +45,7 @@ $(BUILD_DIR)/$(TARGET): $(OBJ)
 
 $(BUILD_DIR)/%.o: %.c
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CXXFLAGS) -MMD -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -c -o $@ $<
 
 -include $(DEP)
 
