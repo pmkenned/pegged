@@ -18,8 +18,8 @@ ifeq ($(KERNEL),Windows)
 	ifeq ($(ENV), CYGWIN_NT)
 	endif
 	ifeq ($(ENV), MINGW32_NT)
-		CPPFLAGS = -Ic:/MinGW/include/ncursesw/
-		LDFLAGS = -Lc:/MinGW/lib/
+		CPPFLAGS += -Ic:/MinGW/include/ncursesw/
+		LDFLAGS += -Lc:/MinGW/lib/
 		LDLIBS += -lncursesw
 	endif
 	TARGET := $(TARGET).exe
